@@ -1,0 +1,219 @@
+// NEW CODE HEAVILY BASED ON EXAMPLE
+// Set base parameters
+var margin = {
+  top: 100,
+  right: 20,
+  bottom: 30,
+  left: 60
+};
+var w = 920 - margin.left - margin.right;
+var h = 630 - margin.top - margin.bottom;
+
+// Define the axes
+var xScale = d3.scaleLinear()
+  .range([0, w]);
+
+var yScale = d3.scaleTime()
+  .range([0, h]);
+
+var timeFormat = d3.timeFormat("%M:%S");
+var xAxis = d3.axisBottom(xScale)
+  .tickFormat(d3.format("d"));
+
+var yAxis = d3.axisLeft(yScale)
+  .tickFormat(timeFormat);
+
+// Define a color scale for the legend
+var color = d3.scaleOrdinal(d3.schemeCategory10);
+
+// Create tooltip base
+var div = d3.select("#svgcontainer")
+    .append("div")
+    .attr("class", "tooltip")
+    .attr("id", "tooltip")
+    .style("opacity", 0);
+
+// Create SVG base
+var svg = d3.select("#svgcontainer")
+    .append("svg")
+    .attr("width", w + margin.left + margin.right)
+    .attr("height", h + margin.top + margin.bottom)
+    .attr("class", "graph")
+    .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var parsedTime;
+
+// Extract json data
+d3.json('https://raw.githubusercontent.com/freeCodeCamp/ProjectReferenceData/master/cyclist-data.json').then( (data) => {
+  
+  //Create Date data for the y-axis for minutes and seconds
+  data.forEach((d) => {
+    //d.Place = +d.Place; //[Not sure what this piece of code does, if anything]
+    parsedTime = d["Time"].split(':');
+    d["Time"] = new Date(1970, 0, 1, 0, parsedTime[0], parsedTime[1]);
+  });
+  
+  // Establish the domains
+  xScale.domain([d3.min(data, (d) => {return d.Year - 1}),
+               d3.max(data, (d) => {return d.Year + 1})]);
+  
+  //yScale.domain(d3.extent(data, (d) => {return d["Time"]}));
+  
+  yScale.domain([d3.max(data, (d) => {return d.Time}),
+                d3.min(data, (d) => {return d.Time})]);
+  
+  // Put the axes on the page
+  svg.append("g")
+    .attr("class", "x axis")
+    .attr("id", "x-axis")
+    .attr("transform", "translate(0," + h + ")")
+    .call(xAxis);
+  
+  svg.append("g")
+    .attr("id", "y-axis")
+    .call(yAxis);
+  
+  // Add the data to each circle on the scatterplot diagram
+  svg.selectAll("circle")
+    .data(data)
+    .enter().append("circle")
+    .attr("class", "dot")
+    .attr("r", 5)
+    .attr("cx", function(d) {
+      return xScale(d.Year);
+    })
+    .attr("cy", function(d) {
+      return yScale(d.Time);
+    })
+    .attr("data-xvalue", (d) => {
+      return d.Year;
+    })
+    .attr("data-yvalue", (d) => {
+      return d.Time.toISOString();
+    })
+    .attr("fill", (d) => {
+      return color(d.Doping != "");
+    })
+    // Add tooltip for each circle
+    .on("mouseover", (d) => {
+      div.style("opacity", 0.9)
+        .attr("data-year", d.Year)
+        .html(d.Year + " " + timeFormat(d.Time))
+        .style("left", (d3.event.pageX) + "px")
+        .style("top", (d3.event.pageY) + "px");
+    })
+    .on("mouseout", (d) => {
+      div.style("opacity", 0)
+    })
+  
+    // Create the legend
+    var legendContainer = svg.append("g")
+      .attr("id", "legend");
+  
+    var legend = legendContainer.selectAll("#legend")
+      .data(color.domain())
+      .enter()
+      .append("g")
+      .attr("transform", (d, i) => {
+        return "translate(0, " + (h/2 - i*20) + ")"
+      });
+  
+    legend.append("rect")
+      .attr("x", w)
+      .attr("width", 20)
+      .attr("height", 20)
+      .style("fill", color);
+      
+    legend.append("text")
+      .attr("x", w - 5)
+      .attr("y", 9)
+      .attr("dy", "0.35em")
+      .style("text-anchor", "end")
+      .text((d) => {
+        if (d) return "Riders with doping allegations";
+        else {
+          return "No doping allegations";
+        }
+      });
+});
+
+// OLD CODE BECAUSE IT DOESN'T WORK
+/* 
+//Set dimensional constraints
+const w = 800;
+const h = 400;
+const padding = 30;
+
+//Create SVG base
+const svg = d3.select("#svgcontainer")
+    .append("svg")
+    .attr("width", w)
+    .attr("height", h)
+
+//Extract json data
+d3.json('https://raw.githubusercontent.com/freeCodeCamp/ProjectReferenceData/master/cyclist-data.json').then( (data) => {
+  
+  //Set variables for min and max data points on both axes
+  const dateData = data.map((d) => {
+    let minutes = Math.floor(d["Seconds"] / 60);
+    let seconds = d["Seconds"] % 60;
+    return new Date(d["Year"], null, null, null, minutes, seconds);
+  });
+  
+  const minData = d3.min(dateData);
+  const maxData = d3.max(dateData);
+  
+  const minDataMinutes = d3.min(dateData, (d) => {
+    return d.getMinutes();
+  });
+  
+  const maxDataMinutes = d3.max(dateData, (d) => {
+    return d.getMinutes();
+  });
+
+  //Establish x and y scales
+  const xScale = d3.scaleLinear()
+                  .domain([minData.getFullYear(), maxData.getFullYear()])
+                  .range([padding, w + padding]);
+  
+  const yScale = d3.scaleTime()
+                  .domain([minDataMinutes, maxDataMinutes + 1])
+                  .range([h - padding, padding]);
+  
+  //Create x and y axes
+  const timeFormat = d3.timeFormat("%M:%S");
+  const xAxis = d3.axisBottom(xScale);
+  const yAxis = d3.axisLeft(yScale).tickFormat(timeFormat);
+  
+  svg.append("g")
+    .attr("id", "x-axis")
+    .attr("transform", "translate(0, " + (h - padding) + ")")
+    .call(xAxis);
+  
+  svg.append("g")
+    .attr("id", "y-axis")
+    .attr("transform", "translate(" + padding + ",0)")
+    .call(yAxis);
+  
+  //Create a dot for each piece of data - CHECKPOINT convert data-yvalue to proper MM:SS format
+  svg.selectAll("circle")
+    .data(data)
+    .enter()
+    .append("circle")
+    .attr("class", "dot")
+    .attr("r", 5)
+    .attr("cx",(d) => xScale(d["Year"]))
+    .attr("cy",(d) => yScale((d["Seconds"]/60)))
+    .attr("data-xvalue", (d) => d["Year"])
+    .attr("data-yvalue", (d) => {
+      let minutes = Math.floor(d["Seconds"] / 60);
+      let seconds = d["Seconds"] % 60;
+      return new Date(d["Year"], null, null, null, minutes, seconds);
+    })
+    //Add descriptive text for each dot
+    .append("title")
+    .text((d) => d["Time"]);
+  
+});
+*/
